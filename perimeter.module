@@ -1,0 +1,141 @@
+<?php
+
+/**
+ * Returns an array of patters of banned requests.
+ */
+function perimeter_patterns() {
+  // @todo Why does the D8 version define its patterns the way it does,
+  //     i.e. some starting with /, others not?
+  $patterns = array(
+    '/.*\.aspx/',
+    '/.*\.asp/',
+    '/.*\.jsp/',
+    '/\/blog_edit\.php/',
+    '/\/blogs\.php/',
+    '/\/wp-admin.*/',
+    '/\/wp-login.*/',
+    '/\/my_blogs/',
+    '/\/system\/.*\.php/',
+    '/.*systopice.*/',
+    '/.*login.json/',
+  );
+
+  // @todo Load custom patterns?
+
+  return $patterns;
+}
+
+/**
+ * Init.
+ */
+function perimeter_init() {
+  // @todo move to a hook where this actually works.
+  $perimeter_test_mode = variable_get('perimeter_test_mode', FALSE);
+  if ($perimeter_test_mode) {
+    drupal_set_message('Perimeter test mode is on.');
+  }
+}
+
+/**
+ * Called by includes/common.inc:drupal_deliver_page().
+ * This lets us divert the page callback through our own function.
+ */
+function perimeter_page_delivery_callback_alter(&$callback) {
+  if ($callback === 'drupal_deliver_html_page') {
+    $callback = 'perimeter_html_delivery_callback';
+  }
+}
+
+/**
+ * Callback for drupal_deliver_page().
+ *
+ * This function is called outside of any access checks, and has the
+ * potential to re-route all of Drupal's page requests, so be careful
+ * what you do within this function.
+ */
+function perimeter_html_delivery_callback($page_callback_result) {
+  if ($page_callback_result === MENU_NOT_FOUND) {
+    perimeter_banned_urls_handler();
+  }
+
+  // Now that we have done our thing (or not), call the original handler.
+  drupal_deliver_html_page($page_callback_result);
+}
+
+/**
+ * On 'page not found' events, ban the IP if the request is suspicious.
+ *
+ * Only call this function on MENU_NOT_FOUND.
+ */
+function perimeter_banned_urls_handler() {
+
+  $banned_patterns = perimeter_patterns();
+
+  // Prefix a slash, because that is what D8 does and this way
+  // we keep the patterns compatible.
+  $request_path = '/' . request_path();
+
+  foreach ($banned_patterns as $pattern) {
+    if (preg_match($pattern, $request_path)) {
+      $ip = trim($_SERVER['REMOTE_ADDR']);
+
+      $perimeter_test_mode = variable_get('perimeter_test_mode', FALSE);
+      if ($perimeter_test_mode) {
+        // Only ban test addresses. This can be useful to see if bans
+        // actually occur without locking the tester out of the
+        // website.
+        // See https://tools.ietf.org/html/rfc5737
+        $ip = '192.0.2.' . rand(0,255);
+      }
+      if (_perimeter_ban_ip($ip, $perimeter_test_mode)) {
+        watchdog(
+          'perimeter',
+          'Banned: %ip for requesting %pattern <br />Source: %source <br /> User Agent: %browser',
+          array(
+            '%ip' => $ip,
+            '%pattern' => filter_xss($pattern),
+            '%source' => isset($_SERVER['HTTP_REFERER']) ? filter_xss($_SERVER['HTTP_REFERER']) : '',
+            '%browser' => isset($_SERVER['HTTP_USER_AGENT']) ? filter_xss($_SERVER['HTTP_USER_AGENT']) : '',
+          ),
+          WATCHDOG_NOTICE
+        );
+      }
+      break;
+    }
+  }
+}
+
+/**
+ * Bans IP address $ip.
+ *
+ * @param string $ip
+ *   IP address.
+ *
+ * @param bool $return_only
+ *   Returns the result without banning.
+ *
+ * @param bool $test_mode
+ *   Perimeter test mode enabled.
+ *
+ * @return bool
+ *   TRUE if $ip can be blocked legally, FALSE otherwise.
+ */
+function _perimeter_ban_ip($ip, $return_only = FALSE, $test_mode = FALSE) {
+  // These three tests were borrowed from
+  //     system_ip_blocking_form_validate().
+  $is_already_blocked = db_query("SELECT * FROM {blocked_ips} WHERE ip = :ip", array(':ip' => $ip))->fetchField();
+  $is_own_ip = ($ip == ip_address());
+  $is_valid_ip = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_RES_RANGE);
+
+  $bannable = !$is_already_blocked && !$is_own_ip && $is_valid_ip;
+
+  if ($bannable || $test_mode) {
+    if (!$return_only) {
+      db_insert('blocked_ips')
+        ->fields(array('ip' => $ip))
+        ->execute();
+    }
+    return TRUE;
+  }
+  return FALSE;
+}

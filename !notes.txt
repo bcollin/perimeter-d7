@@ -1,0 +1,62 @@
+
+*
+
+Since this is all pretty low-level stuff, I thought of maybe doing the banning at the end of the page load, when there are fewer possibilities of breaking things.
+
+The idea was to go through the following steps:
+- divert page delivery by setting a new delivery handler.
+- let the new delivery handler only set a flag.
+- call the original delivery handler.
+- ... Drupal does its thing.
+- ... Drupal does more of its thing.
+- ... et cetera.
+- call a late hook that reads out the flag and bans the user if necessary.
+
+There were two questions that needed to be answered for this:
+
+1. Is this relevant? I.e. does the delivery handler get called early or late? If the handler itself gets called late, that may dissipate much of the possibility for mayhem and we do not need this method.
+
+2. Which late hooks can we call?
+
+The answer to #1 is that the delivery handler gets called extremely early.
+
+Basically the process in index.php is: bootstrap Drupal, then check if there is a page, then call the function that calls the delivery handler.
+
+What is more, no hooks are called after the delivery handler is run.
+
+This makes my plan void. People will just have to be careful patching this module.
+
+*
+
+Why does the D8 module log the request path instead of the pattern?
+
+*
+
+Use cases:
+
+- You are irritated by your logs being clogged up by hacking attempts in which a single visitor calls a great number of non-existing page.
+
+- Hackers that try Wordpress paths first and Drupal paths second, will be blocked before they reach the Drupal paths.
+
+When things go wrong:
+
+- When your Drupal site used to be a Wordpress or ASP site and old links are still called.
+
+- When a naive vistor tries to figure out which Wordpress template you are using.
+
+- When you have a hybrid site that contains both Drupal and other systems.
+
+Discussion: what is worse, having hackers trying all the locks? Or locking out the odd legitimate visitor?
+
+How to fix when things go wrong:
+
+- If an informed webmaster could change the list of patterns, that would at least give them the possibility to take out the patterns that match live paths.
+
+- Another option would be to only ban on the second attempt. That would at least mitigate against people being blocked who followed for example an old ASP link
+
+- Maybe integrate with the more popular redirect modules, so that the patterns don't conflict.
+
+Other disadvantages of this module:
+
+- By blocking consecutive path scans, you lose information about which paths are being scanned.
+

@@ -1,0 +1,3 @@
+name = Drupal Perimeter Defence
+description = Immediately ban hackers when they try to scan the site.
+core = 7.x
