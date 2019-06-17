@@ -34,9 +34,9 @@ Why does the D8 module log the request path instead of the pattern?
 
 Use cases:
 
-- You are irritated by your logs being clogged up by hacking attempts in which a single visitor calls a great number of non-existing page.
+- You are irritated by your logs being clogged up by hacking attempts in which a single visitor calls a great number of non-existing pages.
 
-- Hackers that try Wordpress paths first and Drupal paths second, will be blocked before they reach the Drupal paths.
+- Hackers that try Wordpress paths first and Drupal paths second will be blocked before they reach the Drupal paths.
 
 When things go wrong:
 
@@ -52,7 +52,7 @@ How to fix when things go wrong:
 
 - If an informed webmaster could change the list of patterns, that would at least give them the possibility to take out the patterns that match live paths.
 
-- Another option would be to only ban on the second attempt. That would at least mitigate against people being blocked who followed for example an old ASP link
+- Another option would be to only ban on the second attempt. That would at least mitigate against people being blocked who followed for example an old ASP link.
 
 - Maybe integrate with the more popular redirect modules, so that the patterns don't conflict.
 

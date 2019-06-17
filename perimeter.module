@@ -26,17 +26,6 @@ function perimeter_patterns() {
 }
 
 /**
- * Init.
- */
-function perimeter_init() {
-  // @todo move to a hook where this actually works.
-  $perimeter_test_mode = variable_get('perimeter_test_mode', FALSE);
-  if ($perimeter_test_mode) {
-    drupal_set_message('Perimeter test mode is on.');
-  }
-}
-
-/**
  * Called by includes/common.inc:drupal_deliver_page().
  * This lets us divert the page callback through our own function.
  */
@@ -79,15 +68,7 @@ function perimeter_banned_urls_handler() {
     if (preg_match($pattern, $request_path)) {
       $ip = trim($_SERVER['REMOTE_ADDR']);
 
-      $perimeter_test_mode = variable_get('perimeter_test_mode', FALSE);
-      if ($perimeter_test_mode) {
-        // Only ban test addresses. This can be useful to see if bans
-        // actually occur without locking the tester out of the
-        // website.
-        // See https://tools.ietf.org/html/rfc5737
-        $ip = '192.0.2.' . rand(0,255);
-      }
-      if (_perimeter_ban_ip($ip, $perimeter_test_mode)) {
+      if (_perimeter_ban_ip($ip)) {
         watchdog(
           'perimeter',
           'Banned: %ip for requesting %pattern <br />Source: %source <br /> User Agent: %browser',
@@ -114,13 +95,10 @@ function perimeter_banned_urls_handler() {
  * @param bool $return_only
  *   Returns the result without banning.
  *
- * @param bool $test_mode
- *   Perimeter test mode enabled.
- *
  * @return bool
  *   TRUE if $ip can be blocked legally, FALSE otherwise.
  */
-function _perimeter_ban_ip($ip, $return_only = FALSE, $test_mode = FALSE) {
+function _perimeter_ban_ip($ip, $return_only = FALSE) {
   // These three tests were borrowed from
   //     system_ip_blocking_form_validate().
   $is_already_blocked = db_query("SELECT * FROM {blocked_ips} WHERE ip = :ip", array(':ip' => $ip))->fetchField();
@@ -129,7 +107,7 @@ function _perimeter_ban_ip($ip, $return_only = FALSE, $test_mode = FALSE) {
 
   $bannable = !$is_already_blocked && !$is_own_ip && $is_valid_ip;
 
-  if ($bannable || $test_mode) {
+  if ($bannable) {
     if (!$return_only) {
       db_insert('blocked_ips')
         ->fields(array('ip' => $ip))
