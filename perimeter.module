@@ -135,7 +135,7 @@ function perimeter_menu() {
 }
 
 /**
- * Page callback: Slow Ban settings
+ * Page callback: Perimeter Defence settings
  *
  * @see perimeter_menu()
  */
