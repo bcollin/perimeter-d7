@@ -20,8 +20,6 @@ function perimeter_patterns() {
     '/.*login.json/',
   );
 
-  // @todo Load custom patterns?
-
   return $patterns;
 }
 
@@ -116,4 +114,114 @@ function _perimeter_ban_ip($ip, $return_only = FALSE) {
     return TRUE;
   }
   return FALSE;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function perimeter_menu() {
+  $items = array();
+
+  $items['admin/config/system/perimeter'] = array(
+    'title' => 'Perimeter Defence',
+    'description' => 'Set the paths that will get visitors banned.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('perimeter_config_form'),
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Page callback: Slow Ban settings
+ *
+ * @see perimeter_menu()
+ */
+function perimeter_config_form($form, &$form_state) {
+  $default_patterns = implode("\r\n", perimeter_patterns());
+
+  $form['perimeter_blacklist'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Paths\' blacklist'),
+    '#default_value' => variable_get('perimeter_blacklist', $default_patterns),
+    '#description' => t('If a visitor requests a page of which the path matches one of these regular expressions, that visitor will get banned from the site. Use one pattern per line. Patterns should start and end with the same delimiter (for example a forward slash). See the PHP documentation for an <a href="https://www.php.net/manual/en/reference.pcre.pattern.syntax.php" target="_blank" rel="noopener">explanation of patterns</a>.'),
+    '#required' => FALSE,
+  );
+  $form['perimeter_default_blacklist_fieldset'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Default blacklist'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  );
+  $form['perimeter_default_blacklist_fieldset']['default_blacklist'] = array(
+    '#type' => 'markup',
+    '#markup' => '<p>' . t('Replace your patterns with the ones below if you want to restore the defaults.') . '</p><pre>' . implode("<br>", perimeter_patterns()) . '</pre>',
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Implements validation from the Form API.
+ *
+ * @param $form
+ *   A structured array containing the elements and properties of the form.
+ *
+ * @param $form_state
+ *   An array that stores information about the form's current state
+ *   during processing.
+ */
+function perimeter_config_form_validate($form, &$form_state){
+  $blacklist = $form_state['values']['perimeter_blacklist'];
+
+  $blacklist_r = explode("\r\n", $blacklist);
+  $has_mismatched_delimeters = FALSE;
+  $mismatched_delimiters = array();
+  foreach ($blacklist_r as $pattern) {
+    $len = strlen($pattern);
+    if (substr($pattern, 0, 1) !== substr($pattern, ($len-1), 1)) {
+      $has_mismatched_delimeters = TRUE;
+      $mismatched_delimiters[] = '<code>' . $pattern . '</code>';
+    }
+  }
+  if (!empty($mismatched_delimiters[0])) {
+    $mismatched_delimiters = implode('</li><li>', $mismatched_delimiters);
+    $mismatched_delimiters = '<ul><li>' . $mismatched_delimiters . '</li></ul>';
+  }
+  else {
+    $mismatched_delimiters = '';
+  }
+
+  if ($blacklist === '') {
+    form_set_error('perimeter_blacklist', t('Enter at least one pattern. See the <a href="#edit-perimeter-default-blacklist-fieldset">default patterns</a> below for examples.'));
+  }
+  elseif($has_mismatched_delimeters) {
+    form_set_error('perimeter_blacklist', t('You have mismatched delimiters for the following patterns:') . $mismatched_delimiters);
+  }
+}
+
+/**
+ * Implements hook_help().
+ *
+ * @return string
+ *   HTML containing the contents of README.txt.
+ */
+function perimeter_help($path, $arg) {
+  $out = '';
+  switch ($path) {
+    case 'admin/help#perimeter':
+      // Crudely and lazily inline the README.txt file.
+      $filepath = dirname(__FILE__) . '/README.txt';
+      if (file_exists($filepath)) {
+        $readme = file_get_contents($filepath);
+      }
+  }
+
+  if (!empty($readme)) {
+    $out = "<pre>$readme</pre>";
+  }
+
+  return $out;
 }

@@ -1,4 +1,4 @@
-= Drupal Perimeter Defence =
+= Perimeter Defence =
 
 This module attempts to block hackers from accessing your website.
 
@@ -8,7 +8,7 @@ these vulnerabilities. These requests can be easy to recognise when
 hackers brute-force the scan by asking for paths that are uncommon to
 Drupal.
 
-For example, /user and /sites are commonly requested Drupal-paths, and
+For example, /user and /sites are commonly requested Drupal paths, and
 should not cause alarm if requested. On the other hand, common Wordpress
 paths are /wp-admin and /wp-content, so if a visitor is requesting these
 on a Drupal-based website, this may indicate that said visitor is a hacker.

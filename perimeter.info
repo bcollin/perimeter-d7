@@ -1,3 +1,5 @@
-name = Drupal Perimeter Defence
+name = Perimeter Defence
 description = Immediately ban hackers when they try to scan the site.
 core = 7.x
+
+configure = admin/config/system/perimeter
